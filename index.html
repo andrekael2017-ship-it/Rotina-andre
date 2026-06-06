@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>SISTEMA KAEL v9 - Cloud</title>
+    
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIktBRUwgVjkiLAogICJzaG9ydF9uYW1lIjogIktBRUwiLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBmMTcyYSIsCiAgInRoZW1lX2NvbG9yIjogIzJlN2QzMiIKfQ==">
+
+    <style>
+        :root { --primary: #2e7d32; --gold: #ffd700; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --danger: #ef4444; --accent: #3b82f6; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 100px; user-select: none; }
+        .header { background: var(--card); padding: 15px; text-align: center; border-bottom: 3px solid var(--primary); position: relative; }
+        .score-card { background: var(--card); padding: 15px; margin: 10px; border-radius: 12px; text-align: center; border: 1px solid #334155; }
+        .score-big { font-size: 2.5rem; font-weight: bold; color: var(--gold); margin: 5px 0; }
+        .view { display: none; padding: 15px; }
+        .active { display: block; }
+        .card { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 10px; border-left: 5px solid var(--primary); position: relative; cursor: pointer; }
+        .status-wait { border-left-color: var(--gold); opacity: 0.8; }
+        .btn { border: none; border-radius: 8px; padding: 15px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 8px; color: white; display: block; text-decoration: none; text-align: center; box-sizing: border-box; }
+        .btn-sync { background: var(--accent); }
+        .btn-add { background: var(--primary); }
+        .btn-neg { background: var(--danger); }
+        .nav { position: fixed; bottom: 0; width: 100%; background: var(--card); display: flex; border-top: 2px solid var(--primary); z-index: 999; }
+        .nav-item { flex: 1; padding: 15px; text-align: center; color: #94a3b8; font-weight: bold; cursor: pointer; }
+        .nav-item.active { color: var(--primary); background: rgba(46, 125, 50, 0.1); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: var(--card); width: 100%; max-width: 400px; padding: 20px; border-radius: 15px; border: 1px solid #334155; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box;}
+        .hist-item { background: #0f172a; padding: 10px; margin-bottom: 6px; border-radius: 6px; border-left: 4px solid #fff; font-size: 0.85rem; }
+        .hist-ganho { border-left-color: var(--primary); }
+        .hist-perda { border-left-color: var(--danger); }
+        .hist-neutro { border-left-color: var(--accent); }
+        .filter-btn { background: #334155; border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
+        .filter-btn.active { background: var(--accent); }
+        .app-notification { background: #1e1b4b; border: 2px solid var(--accent); text-align: center; }
+        .app-notification h3 { color: var(--gold); margin-top: 0; font-size: 1.3rem; }
+        .app-notification p { font-size: 1rem; line-height: 1.4; color: var(--text); }
+        
+        .date-filter-container { background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #334155; }
+        .date-input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: white; font-weight: bold; text-align: center; font-size: 0.9rem; margin: 5px 0 0 0; }
+        .no-data-alert { text-align: center; padding: 20px; color: var(--gold); font-style: italic; font-size: 0.9rem; background: #0f172a; border-radius: 8px; border: 1px dashed #475569; margin: 5px 0; }
+        
+        /* Indicador visual de Nuvem */
+        .cloud-status { position: absolute; top: 15px; right: 15px; font-size: 0.75rem; padding: 4px 8px; border-radius: 20px; background: #334155; color: #94a3b8; font-weight: bold; transition: all 0.3s; }
+        .cloud-online { background: rgba(46, 125, 50, 0.2); color: #4ade80; border: 1px solid var(--primary); }
+        .cloud-syncing { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2 style="margin:0; color:var(--primary);">SISTEMA KAEL v9</h2>
+        <div id="userLabel" style="font-size: 0.7rem; color: var(--gold);">MODO KAEL</div>
+        <div id="cloudIndicator" class="cloud-status">☁️ LOCAL</div>
+    </div>
+
+    <div class="score-card">
+        <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">Saldo de Pontos</div>
+        <div class="score-big" id="s_total">0</div>
+        <div id="potencialDia" style="font-size: 0.85rem; font-weight: bold; color: var(--accent); margin-bottom: 5px;">Potencial do Dia: +0 pts</div>
+        <div id="msgDia" style="font-style: italic; color: #94a3b8;">"Foco nos estudos!"</div>
+    </div>
+
+    <!-- TELA KAEL -->
+    <div id="v-kael" class="view active">
+        <button class="btn btn-add" onclick="openM('m_sug')" style="margin-bottom: 15px;">✨ SUGERIR TAREFA EXTRA</button>
+        <p style="font-size: 0.75rem; color: #64748b; text-align: center; margin: -5px 0 10px 0;">💡 Clique 3x rápido em uma tarefa para editar (Senha do Pai)</p>
+        <div id="listaKael"></div>
+    </div>
+
+    <!-- TELA PAI -->
+    <div id="v-pai" class="view">
+        <div style="padding:15px; background: #1e293b; border-radius:12px; margin-bottom:20px; border: 1px solid #334155;">
+            <div style="font-weight:bold; color:var(--gold); margin-bottom:10px; text-transform: uppercase; font-size: 0.9rem;">Gerenciar Missões Diárias</div>
+            
+            <div style="background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem;">
+                <div style="color: var(--accent); font-weight: bold;">Selecionadas: <span id="paiPontosOferecidos" style="color: var(--gold);">0</span> pts</div>
+            </div>
+
+            <input type="text" id="in_msg_boas_vindas" placeholder="Mensagem do Topo" style="padding:8px;" onchange="state.msg=this.value; save();">
+
+            <button class="btn btn-add" onclick="openM('m_base')">+ NOVA TAREFA MODELO</button>
+            <div id="bibPai" style="max-height: 180px; overflow-y: auto; margin:10px 0; background: #0f172a; border-radius: 8px; padding: 5px;"></div>
+            <button class="btn btn-sync" onclick="syncTarefas()">🚀 LANÇAR SELECIONADAS</button>
+            <button class="btn" style="background: #5b21b6;" onclick="openM('m_ajuste')">⚖ AJUSTE MANUAL</button>
+            <button class="btn" style="background: #475569;" onclick="fecharCicloManual()">🔒 ENCERRAR CICLO AGORA</button>
+        </div>
+
+        <h3 style="color:var(--accent); font-size: 0.9rem;">📋 APROVAÇÕES PENDENTES</h3>
+        <div id="auditoria"></div>
+
+        <h3 style="color:var(--gold); font-size: 0.9rem; margin-top:20px;">📜 HISTÓRICO</h3>
+        
+        <div class="date-filter-container">
+            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: bold; text-transform: uppercase;">📅 Filtrar por Data:</span>
+            <input type="date" id="filtroDataInput" class="date-input" onchange="aplicarFiltroData(this.value)">
+            <button class="filter-btn" id="btnLimparData" style="width: 100%; margin-top: 6px; background: #475569; display: none;" onclick="limparFiltroData()">Mostrar Todas as Datas</button>
+        </div>
+
+        <div style="display: flex; gap: 4px; margin-bottom: 8px;" id="filtroContainer">
+            <button class="filter-btn active" onclick="filtrarHist('tudo', this)">Tudo</button>
+            <button class="filter-btn" onclick="filtrarHist('ganhos', this)">Ganhos</button>
+            <button class="filter-btn" onclick="filtrarHist('perdas', this)">Perdas</button>
+        </div>
+        
+        <div id="historicoLog" style="max-height: 250px; overflow-y: auto; background: #1e293b; padding: 10px; border-radius: 12px;"></div>
+        
+        <button class="btn btn-neg" onclick="resetaTudo()" style="margin-top:40px; opacity:0.3; font-size: 0.7rem;">ZERAR SISTEMA</button>
+    </div>
+
+    <!-- MODAIS -->
+    <div id="m_base" class="modal"><div class="modal-content">
+        <h3>Nova Tarefa Modelo</h3>
+        <input type="text" id="in_n" placeholder="Nome">
+        <input type="number" id="in_g" placeholder="Ganho">
+        <input type="number" id="in_m" placeholder="Multa">
+        <label style="font-size:0.9rem;"><input type="checkbox" id="in_rec"> 🔄 Recorrente Diária</label>
+        <button class="btn btn-add" onclick="addBib()">SALVAR</button>
+        <button class="btn btn-neg" onclick="closeM()">CANCELAR</button>
+    </div></div>
+
+    <div id="m_sug" class="modal"><div class="modal-content">
+        <h3>Sugerir Extra</h3>
+        <input type="text" id="is_n" placeholder="O que você fez?">
+        <input type="number" id="is_g" placeholder="Pontos?">
+        <button class="btn btn-add" onclick="sugerir()">ENVIAR</button>
+        <button class="btn btn-neg" onclick="closeM()">CANCELAR</button>
+    </div></div>
+
+    <div id="m_edit" class="modal"><div class="modal-content">
+        <h3>Editar Tarefa</h3>
+        <input type="text" id="ie_n">
+        <input type="number" id="ie_g">
+        <input type="number" id="ie_m">
+        <label style="font-size:0.9rem;"><input type="checkbox" id="ie_rec"> 🔄 Recorrente</label>
+        <button class="btn btn-add" onclick="salvarEdicao()">SALVAR</button>
+        <button class="btn btn-neg" onclick="closeM()">FECHAR</button>
+    </div></div>
+
+    <div id="m_ajuste" class="modal"><div class="modal-content">
+        <h3>Ajuste Manual</h3>
+        <input type="number" id="ia_pts" placeholder="Pontos (ex: -10 ou 10)">
+        <input type="text" id="ia_motivo" placeholder="Motivo">
+        <button class="btn btn-add" onclick="executarAjusteManual()">APLICAR</button>
+        <button class="btn btn-neg" onclick="closeM()">VOLTAR</button>
+    </div></div>
+
+    <div id="m_notif_kael" class="modal"><div class="modal-content app-notification">
+        <div style="font-size: 2.5rem;">📱</div>
+        <h3 id="notif_titulo">NOTIFICAÇÃO</h3>
+        <p id="notif_texto"></p>
+        <button class="btn btn-sync" onclick="closeM()">OK!</button>
+    </div></div>
+
+    <nav class="nav">
+        <div class="nav-item active" onclick="tab('kael', this)">🎮 KAEL</div>
+        <div class="nav-item" onclick="tab('pai', this)">🔑 PAI</div>
+    </nav>
+
+    <script>
+        // No Netlify, as funções ficam no caminho relativo do próprio site
+        const API_URL = "/.netlify/functions/sincronizar"; 
+
+        let state = { 
+            saldo: 0, bib: [], dia: [], pendente: [], historico: [], mode: 'kael', msg: "Foco total!",
+            ultimoFechamento: '', filtroAtual: 'tudo', dataFiltrada: '', notificacaoPendente: null,
+            version: 0
+        };
+        let tarefaEditando = { origem: null, index: null };
+
+        function init() {
+            const saved = localStorage.getItem('kael_v9');
+            if (saved) state = JSON.parse(saved);
+            if (!state.historico) state.historico = [];
+            if (!state.dataFiltrada) state.dataFiltrada = '';
+            if (!state.version) state.version = Date.now();
+            
+            atualizarInputsVisuaisPai();
+            verificarCicloAutomatico();
+            
+            pullFromCloud();
+            
+            // Sincroniza a cada 4 segundos de forma transparente
+            setInterval(pullFromCloud, 4000);
+            setInterval(verificarCicloAutomatico, 60000);
+            render();
+        }
+
+        function updateIndicator(status, type = '') {
+            const ind = document.getElementById('cloudIndicator');
+            ind.className = 'cloud-status ' + type;
+            ind.innerText = status;
+        }
+
+        function save() {
+            state.version = Date.now();
+            localStorage.setItem('kael_v9', JSON.stringify(state));
+            render();
+            pushToCloud();
+        }
+
+        async function pushToCloud() {
+            updateIndicator('⏳ ENVIANDO...', 'cloud-syncing');
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(state)
+                });
+                updateIndicator('☁️ NUVEM OK', 'cloud-online');
+            } catch (e) {
+                updateIndicator('❌ ERRO SALVAR', '');
+            }
+        }
+
+        async function pullFromCloud() {
+            try {
+                const res = await fetch(API_URL);
+                if (res.status === 200) {
+                    const cloudState = await res.json();
+                    if (cloudState && cloudState.version > state.version) {
+                        const currentMode = state.mode; 
+                        state = cloudState;
+                        state.mode = currentMode;
+                        localStorage.setItem('kael_v9', JSON.stringify(state));
+                        atualizarInputsVisuaisPai();
+                        render();
+                        if (state.mode === 'kael') exibirNotificacaoKael();
+                    }
+                    updateIndicator('☁️ NUVEM OK', 'cloud-online');
+                }
+            } catch (e) {
+                // Falha silenciosa se estiver sem internet temporariamente
+            }
+        }
+
+        function render() {
+            document.getElementById('s_total').innerText = state.saldo;
+            document.getElementById('s_total').style.color = state.saldo >= 0 ? "var(--primary)" : "var(--danger)";
+            document.getElementById('msgDia').innerText = `"${state.msg}"`;
+            document.getElementById('userLabel').innerText = state.mode === 'kael' ? 'MODO KAEL' : 'MODO PAI CONTROL';
+            
+            const lk = document.getElementById('listaKael'); 
+            lk.innerHTML = '';
+            state.dia.forEach((t, i) => {
+                lk.innerHTML += `<div class="card ${t.st ? 'status-wait' : ''}" onclick="detectarCliqueTriplo(event, 'dia', ${i})">
+                    <b>${t.n}${t.rec?' 🔄':''}</b> <span style="float:right; color:var(--gold)">G:${t.g} | M:${t.m}</span>
+                    ${!t.st ? `<div style="display:flex; gap:10px; margin-top:10px" onclick="event.stopPropagation()">
+                        <button class="btn btn-add" style="padding:8px;" onclick="marcarFez(${i})">FIZ ✅</button>
+                        <button class="btn btn-neg" style="padding:8px;" onclick="marcarNaoFez(${i})">NÃO FIZ ❌</button>
+                    </div>` : `<div style="color:var(--gold); font-size:0.8rem; margin-top:5px; font-weight:bold;">⏳ Aguardando Pai...</div>`}
+                </div>`;
+            });
+
+            const aud = document.getElementById('auditoria'); 
+            aud.innerHTML = '';
+            state.pendente.forEach((p, i) => {
+                aud.innerHTML += `<div class="card" style="border-left-color: var(--accent);">
+                    <small>${p.tp}</small><br><b>${p.n}</b>
+                    <div style="display:flex; gap:10px; margin-top:10px">
+                        <button class="btn btn-add" style="padding:5px;" onclick="decidir(${i}, true)">👍</button>
+                        <button class="btn btn-neg" style="padding:5px;" onclick="decidir(${i}, false)">👎</button>
+                    </div>
+                </div>`;
+            });
+
+            const bp = document.getElementById('bibPai'); 
+            bp.innerHTML = '';
+            let ptsOferecidos = 0;
+            state.bib.forEach((t, i) => {
+                if (t.s) ptsOferecidos += t.g;
+                bp.innerHTML += `<div style="display:flex; align-items:center; border-bottom:1px solid #334155; padding:5px;">
+                    <input type="checkbox" ${t.s ? 'checked' : ''} onchange="state.bib[${i}].s=!state.bib[${i}].s; save()">
+                    <span style="flex:1; margin-left:10px; font-size:0.85rem;" onclick="detectarCliqueTriplo(event, 'bib', ${i})">${t.n} (${t.g}/${t.m})</span>
+                    <button onclick="state.bib.splice(${i},1); save()" style="background:none; border:none; color:var(--danger);">X</button>
+                </div>`;
+            });
+            document.getElementById('paiPontosOferecidos').innerText = ptsOferecidos;
+
+            const hl = document.getElementById('historicoLog'); 
+            hl.innerHTML = '';
+            let histFiltrado = [...state.historico].reverse();
+            
+            if (state.filtroAtual === 'ganhos') histFiltrado = histFiltrado.filter(h => h.pts > 0);
+            if (state.filtroAtual === 'perdas') histFiltrado = histFiltrado.filter(h => h.pts < 0);
+
+            if (state.dataFiltrada) {
+                const [ano, mes, dia] = state.dataFiltrada.split('-');
+                const dataFormatadaBR = `${dia}/${mes}/${ano}`;
+                histFiltrado = histFiltrado.filter(h => h.data.startsWith(dataFormatadaBR));
+            }
+
+            if (histFiltrado.length === 0) {
+                if (state.dataFiltrada) {
+                    hl.innerHTML = `<div class="no-data-alert">⚠️ Nenhuma movimentação lançada neste dia.</div>`;
+                } else {
+                    hl.innerHTML = `<div style="text-align:center; color:#64748b; padding:15px; font-size:0.85rem;">Histórico vazio.</div>`;
+                }
+            } else {
+                histFiltrado.forEach(h => {
+                    let cor = h.pts > 0 ? 'hist-ganho' : (h.pts < 0 ? 'hist-perda' : 'hist-neutro');
+                    hl.innerHTML += `<div class="hist-item ${cor}">${h.pts} pts | <b>${h.n}</b> (${h.acao})<br><small>${h.data}</small></div>`;
+                });
+            }
+
+            let totalPotencial = 0;
+            state.dia.forEach(t => { if (!t.st) totalPotencial += t.g; });
+            document.getElementById('potencialDia').innerText = `Potencial do Dia: +${totalPotencial} pts`;
+        }
+
+        function aplicarFiltroData(dataISO) {
+            state.dataFiltrada = dataISO;
+            document.getElementById('btnLimparData').style.display = dataISO ? 'block' : 'none';
+            render();
+        }
+
+        function limparFiltroData() {
+            state.dataFiltrada = '';
+            document.getElementById('filtroDataInput').value = '';
+            document.getElementById('btnLimparData').style.display = 'none';
+            render();
+        }
+
+        function decidir(idx, ok) {
+            const p = state.pendente[idx];
+            let pts = 0;
+            
+            if (p.tp === 'FEITO') pts = ok ? p.g : -p.m;
+            else if (p.tp === 'EXTRA') pts = ok ? p.g : 0;
+            else pts = ok ? 0 : -p.m;
+
+            state.saldo += pts;
+            adicionarAoHistorico(p.n, ok ? "Aprovado" : "Reprovado", pts);
+            
+            state.notificacaoPendente = { titulo: "AVALIAÇÃO", texto: `${p.n}: ${pts} pts` };
+            state.pendente.splice(idx, 1);
+            state.dia = state.dia.filter(d => !(d.n === p.n && d.st === 'wait'));
+
+            save();
+            if (state.mode === 'kael') exibirNotificacaoKael();
+        }
+
+        function processarFechamentoDeCiclo(motivo) {
+            const hojeStr = new Date().toLocaleDateString('pt-BR');
+            state.ultimoFechamento = hojeStr;
+
+            state.dia.forEach(t => {
+                if (!t.st) state.pendente.push({...t, tp: 'EXPIRADA'});
+            });
+
+            state.dia = [];
+            state.bib.forEach(b => {
+                if (b.rec) state.dia.push({ ...b, st: null });
+            });
+
+            adicionarAoHistorico("Fim de Ciclo", motivo, 0);
+            save();
+        }
+
+        function verificarCicloAutomatico() {
+            const agora = new Date();
+            const hojeStr = agora.toLocaleDateString('pt-BR');
+            if (state.ultimoFechamento && state.ultimoFechamento !== hojeStr) {
+                processarFechamentoDeCiclo("Novo Dia");
+            } else if (agora.getHours() === 23 && agora.getMinutes() === 59) {
+                processarFechamentoDeCiclo("Meia-noite");
+            }
+        }
+
+        function fecharCicloManual() {
+            if (prompt("Senha:") !== '2026') return;
+            processarFechamentoDeCiclo("Manual pelo Pai");
+        }
+
+        function tab(t, el) {
+            if (t === 'pai' && prompt("Senha:") !== '2026') return;
+            state.mode = t;
+            document.querySelectorAll('.view, .nav-item').forEach(x => x.classList.remove('active'));
+            document.getElementById('v-'+t).classList.add('active');
+            el.classList.add('active');
+            if(t === 'kael') exibirNotificacaoKael();
+            render();
+        }
+
+        function marcarFez(i) { 
+            state.dia[i].st = 'wait'; 
+            state.pendente.push({...state.dia[i], tp: 'FEITO'}); 
+            save(); 
+        }
+
+        function marcarNaoFez(i) { 
+            let j = prompt("Motivo?");
+            if (j === null) return;
+            state.dia[i].st = 'wait';
+            state.pendente.push({...state.dia[i], tp: 'NÃO FEITO', justificativa: j});
+            save();
+        }
+
+        function syncTarefas() {
+            state.bib.filter(b => b.s).forEach(b => {
+                if(!state.dia.some(d => d.n === b.n)) state.dia.push({...b, st: null});
+            });
+            save();
+        }
+
+        function addBib() {
+            const n = document.getElementById('in_n').value;
+            const g = parseInt(document.getElementById('in_g').value) || 0;
+            const m = parseInt(document.getElementById('in_m').value) || 0;
+            const rec = document.getElementById('in_rec').checked;
+            if(n) { state.bib.push({n, g, m, s: false, rec}); closeM(); save(); }
+        }
+
+        function sugerir() {
+            const n = document.getElementById('is_n').value;
+            const g = parseInt(document.getElementById('is_g').value) || 0;
+            if(n) { state.pendente.push({n, g, m: 0, tp: 'EXTRA'}); closeM(); save(); }
+        }
+
+        function ejecutarAjusteManual() {
+            const v = parseInt(document.getElementById('ia_pts').value);
+            const m = document.getElementById('ia_motivo').value;
+            state.saldo += v;
+            adicionarAoHistorico("Ajuste", m, v);
+            state.notificacaoPendente = { titulo: "SISTEMA", texto: m };
+            closeM(); save();
+        }
+
+        function filtrarHist(tipo, btn) {
+            state.filtroAtual = tipo;
+            document.querySelectorAll('#filtroContainer .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            render();
+        }
+
+        function adicionarAoHistorico(n, acao, pts) {
+            state.historico.push({ n, acao, pts, data: new Date().toLocaleString('pt-BR') });
+        }
+
+        function atualizarInputsVisuaisPai() {
+            document.getElementById('in_msg_boas_vindas').value = state.msg;
+            if (state.dataFiltrada) {
+                document.getElementById('filtroDataInput').value = state.dataFiltrada;
+                document.getElementById('btnLimparData').style.display = 'block';
+            }
+        }
+
+        function detectarCliqueTriplo(event, origem, index) {
+            if (event.detail === 3) {
+                if (prompt("Senha:") !== '2026') return;
+                tarefaEditando = { origem, index };
+                const t = state[origem][index];
+                document.getElementById('ie_n').value = t.n;
+                document.getElementById('ie_g').value = t.g;
+                document.getElementById('ie_m').value = t.m;
+                document.getElementById('ie_rec').checked = t.rec;
+                openM('m_edit');
+            }
+        }
+
+        function salvarEdicao() {
+            let t = state[tarefaEditando.origem][tarefaEditando.index];
+            t.n = document.getElementById('ie_n').value;
+            t.g = parseInt(document.getElementById('ie_g').value);
+            t.m = parseInt(document.getElementById('ie_m').value);
+            t.rec = document.getElementById('ie_rec').checked;
+            closeM(); save();
+        }
+
+        function openM(id) { document.getElementById(id).style.display='flex'; }
+        function closeM() { document.querySelectorAll('.modal').forEach(m => m.style.display='none'); }
+        function exibirNotificacaoKael() {
+            if (state.notificacaoPendente) {
+                document.getElementById('notif_titulo').innerText = state.notificacaoPendente.titulo;
+                document.getElementById('notif_texto').innerText = state.notificacaoPendente.texto;
+                openM('m_notif_kael');
+                state.notificacaoPendente = null;
+                save();
+            }
+        }
+        function resetaTudo() { if(confirm("Zerar?")) { localStorage.clear(); location.reload(); } }
+
+        init();
+    </script>
+</body>
+</html>
